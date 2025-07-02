@@ -15,6 +15,13 @@
                     </h1>
                     <div class="flex">
                         <router-link
+                            to="/worker-lifecycle"
+                            class="nav-link"
+                            active-class="nav-link-active"
+                        >
+                            Worker Lifecycle
+                        </router-link>
+                        <router-link
                             to="/with-web-worker"
                             class="nav-link"
                             active-class="nav-link-active"

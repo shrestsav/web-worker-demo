@@ -4,6 +4,7 @@ import PsdViewer from '../pages/PsdViewer.vue'
 import AppLayout from '../components/AppLayout.vue'
 import WithWebWorker from '../pages/WithWebWorker.vue'
 import WithoutWebWorker from '../pages/WithoutWebWorker.vue'
+import WorkerLifecycle from '../pages/WorkerLifecycle.vue'
 
 const routes = [
   {
@@ -25,6 +26,11 @@ const routes = [
     path: '/without-web-worker',
     name: 'WithoutWebWorker',
     component: WithoutWebWorker
+  },
+  {
+    path: '/worker-lifecycle',
+    name: 'WorkerLifecycle',
+    component: WorkerLifecycle
   }
 ]
 
