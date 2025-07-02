@@ -61,7 +61,7 @@ async function processFiles(files) {
     isProcessing.value = true
     totalFiles.value = files.length
     processedFiles.value = 0
-    
+
     // Start the processing timer
     processingStartTime.value = performance.now()
     totalProcessingTime.value = null
@@ -79,26 +79,26 @@ async function processFiles(files) {
         // Function to get an available worker from the pool
         const getAvailableWorker = () => {
             // Find a worker that's not busy or create a new one if under MAX_WORKERS
-            const availableWorker = workerPool.find(w => !w.busy)
+            const availableWorker = workerPool.find((w) => !w.busy)
             if (availableWorker) {
                 availableWorker.busy = true
                 return availableWorker.worker
             }
-            
+
             // If all workers are busy and we haven't reached max, create a new one
             if (workerPool.length < MAX_WORKERS) {
                 const newWorker = createWorker()
                 workerPool.push({ worker: newWorker, busy: true })
                 return newWorker
             }
-            
+
             // If all workers are busy and we've reached max, return the first one (round-robin)
             return workerPool[0].worker
         }
-        
+
         // Function to mark a worker as available
         const markWorkerAvailable = (worker) => {
-            const workerObj = workerPool.find(w => w.worker === worker)
+            const workerObj = workerPool.find((w) => w.worker === worker)
             if (workerObj) {
                 workerObj.busy = false
             }
@@ -107,17 +107,17 @@ async function processFiles(files) {
         // Function to process the next file in the queue
         const processNextFile = async () => {
             if (pendingFiles.length === 0) return
-            
+
             const file = pendingFiles.shift()
             const id = Date.now() + Math.random() // Unique ID
-            
+
             try {
                 // Read the file as ArrayBuffer to send to the worker
                 const fileBuffer = await readFileAsArrayBuffer(file)
-                
+
                 // Get an available worker
                 const worker = getAvailableWorker()
-                
+
                 // Create a promise that resolves when this file is processed
                 const processPromise = new Promise((resolve) => {
                     // Store the resolve function to be called when worker completes this file
@@ -128,14 +128,14 @@ async function processFiles(files) {
                             resolve(worker)
                         }
                     }
-                    
+
                     // Store the handler reference so we can remove it later
                     activePromises.set(id, { resolve, messageHandler, worker })
-                    
+
                     // Add temporary message listener for this specific file
                     worker.addEventListener('message', messageHandler)
                 })
-                
+
                 // Send the file to the worker for processing
                 worker.postMessage(
                     {
@@ -149,18 +149,21 @@ async function processFiles(files) {
                     },
                     [fileBuffer]
                 ) // Transfer the buffer to avoid copying
-                
+
                 // When this file is processed, clean up and process next file
                 processPromise.then((completedWorker) => {
                     const handler = activePromises.get(id)
                     if (handler && handler.messageHandler) {
-                        handler.worker.removeEventListener('message', handler.messageHandler)
+                        handler.worker.removeEventListener(
+                            'message',
+                            handler.messageHandler
+                        )
                     }
                     activePromises.delete(id)
-                    
+
                     // Mark the worker as available
                     markWorkerAvailable(completedWorker)
-                    
+
                     // Process next file if any remain
                     processNextFile()
                 })
@@ -175,12 +178,12 @@ async function processFiles(files) {
                         'Could not read preview – was the file saved with "Maximise Compatibility"?',
                 })
                 processedFiles.value++
-                
+
                 // Process next file
                 processNextFile()
             }
         }
-        
+
         // Start initial batch of files up to MAX_WORKERS limit
         const initialBatchSize = Math.min(MAX_WORKERS, fileArray.length)
         for (let i = 0; i < initialBatchSize; i++) {
@@ -215,7 +218,11 @@ function createWorker() {
         if (type === 'process_complete') {
             try {
                 // Use thumbnails directly from the worker
-                if (data.success && data.originalThumbnail && data.resizedThumbnail) {
+                if (
+                    data.success &&
+                    data.originalThumbnail &&
+                    data.resizedThumbnail
+                ) {
                     // Add the processed thumbnail to the list
                     thumbnails.value.push({
                         id: data.id,
@@ -224,7 +231,7 @@ function createWorker() {
                         resized: data.resizedThumbnail,
                         fileSize: data.fileSize,
                         isPreview: data.isPreview,
-                        isPlaceholder: data.isPlaceholder
+                        isPlaceholder: data.isPlaceholder,
                     })
                 } else {
                     // Handle error case
@@ -236,13 +243,13 @@ function createWorker() {
                             data.errorMessage || 'Failed to process PSD data',
                     })
                 }
-                
+
                 // Explicitly request browser to free memory
                 if (window.requestIdleCallback) {
                     window.requestIdleCallback(() => {
                         // Attempt to free memory when browser is idle
-                        if (window.gc) window.gc();
-                    });
+                        if (window.gc) window.gc()
+                    })
                 }
             } catch (err) {
                 console.error('Error processing PSD data:', err)
@@ -259,8 +266,11 @@ function createWorker() {
                 if (processedFiles.value >= totalFiles.value) {
                     // Stop the timer and calculate total time
                     processingEndTime.value = performance.now()
-                    totalProcessingTime.value = ((processingEndTime.value - processingStartTime.value) / 1000).toFixed(2)
-                    
+                    totalProcessingTime.value = (
+                        (processingEndTime.value - processingStartTime.value) /
+                        1000
+                    ).toFixed(2)
+
                     isProcessing.value = false
 
                     // Request cleanup before terminating the worker
@@ -304,7 +314,7 @@ function createWorker() {
     worker.onerror = (error) => {
         console.error('Worker error:', error)
     }
-    
+
     return worker
 }
 
@@ -312,7 +322,7 @@ function createWorker() {
 function initializeWorkerPool() {
     // Clear existing pool
     cleanupWorkerPool()
-    
+
     // Create initial workers
     for (let i = 0; i < MAX_WORKERS; i++) {
         const worker = createWorker()
@@ -326,7 +336,7 @@ function cleanupWorkerPool() {
         try {
             // First request cleanup
             workerObj.worker.postMessage({ type: 'cleanup' })
-            
+
             // Terminate after a short delay
             setTimeout(() => {
                 workerObj.worker.terminate()
@@ -336,7 +346,7 @@ function cleanupWorkerPool() {
             workerObj.worker.terminate()
         }
     }
-    
+
     // Clear the pool
     workerPool.length = 0
 }
@@ -349,7 +359,7 @@ function getAvailableWorker() {
             return workerObj
         }
     }
-    
+
     // If no worker is available, create a new one
     const worker = createWorker()
     workerPool.push({ worker, busy: true })
@@ -378,10 +388,10 @@ onUnmounted(() => {
             <div class="card-header max-w-screen-2xl mx-auto w-full px-6">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h2 class="text-xl font-semibold">
+                        <h2 class="text-xl font-semibold" style="color: black">
                             PSD Thumbnail Viewer
                         </h2>
-                        <p class="text-sm text-gray-500">
+                        <p class="text-sm text-gray-500" style="color: black">
                             View thumbnails from your PSD files
                         </p>
                     </div>
@@ -459,26 +469,60 @@ onUnmounted(() => {
                 <div class="processing-stats">
                     <div class="stats-card">
                         <div class="stats-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-6 w-6"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
                             </svg>
                         </div>
                         <div class="stats-content">
                             <h4 class="stats-title">Processing Time</h4>
-                            <p class="stats-value">{{ totalProcessingTime }} seconds</p>
-                            <p class="stats-detail">{{ totalFiles }} files ({{ (totalFiles / parseFloat(totalProcessingTime)).toFixed(2) }} files/sec)</p>
+                            <p class="stats-value">
+                                {{ totalProcessingTime }} seconds
+                            </p>
+                            <p class="stats-detail">
+                                {{ totalFiles }} files ({{
+                                    (
+                                        totalFiles /
+                                        parseFloat(totalProcessingTime)
+                                    ).toFixed(2)
+                                }}
+                                files/sec)
+                            </p>
                         </div>
                     </div>
                     <div class="stats-card">
                         <div class="stats-icon worker-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-6 w-6"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                />
                             </svg>
                         </div>
                         <div class="stats-content">
                             <h4 class="stats-title">Worker Threads</h4>
                             <p class="stats-value">{{ MAX_WORKERS }}</p>
-                            <p class="stats-detail">Parallel processing enabled</p>
+                            <p class="stats-detail">
+                                Parallel processing enabled
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -975,5 +1019,9 @@ onUnmounted(() => {
 .stats-detail {
     font-size: 0.75rem;
     color: #94a3b8;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+    color: black;
 }
 </style>
